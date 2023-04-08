@@ -24,7 +24,7 @@ def compareFace():
         return 2
     result = r.json()['result']
     for person in result:
-        if person['subjects'][0]['similarity'] < 0.97:
+        if person['subjects'][0]['similarity'] < 0.98:
             return 1
     return 0
     
@@ -78,8 +78,12 @@ while rtscap.isStarted():
         continue
     if frame_count % 50 == 0:
         cv2.imwrite('tmp.jpg', frame)
-        result = subprocess.getoutput("yolo detect predict model=yolov8n.pt source='tmp.jpg'")
-        if "person" in result:
+        result = subprocess.getoutput("yolo detect predict model=best_all_data.pt source='tmp.jpg'")
+        if "Person" in result:
+            fallOrNot = subprocess.getoutput("yolo detect predict model=fall_best.pt source='tmp.jpg'")
+            if 'fall' in fallOrNot:
+                print('有人摔倒')
+                pushAlert('家里有人摔倒')
             recg = compareFace()
             if recg == 0:
                 print('欢迎')
@@ -89,8 +93,6 @@ while rtscap.isStarted():
                 print('未检测到人脸')
             with open('someone','w')as f:
                 f.write('1')
-        elif "Fall" in result:
-            pushAlert('家里有人摔倒')
         elif "Fire" in result:
             pushAlert('家里可能着火')
             with open('onfire','w')as f:
