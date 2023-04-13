@@ -1,4 +1,6 @@
-import cv2,threading,requests,subprocess
+import cv2,threading,requests,subprocess,time
+from server import crud, models
+from server.database import SessionLocal, engine
 
 def pushAlert(m:str):
     headers = {
@@ -26,8 +28,7 @@ def compareFace():
     for person in result:
         if person['subjects'][0]['similarity'] < 0.98:
             return 1
-    return 0
-    
+    return 0  
 class RTSCapture(cv2.VideoCapture):
     _cur_frame = None
     _reading = False
@@ -69,10 +70,25 @@ class RTSCapture(cv2.VideoCapture):
         self._reading = False
         if self.frame_receiver.is_alive(): self.frame_receiver.join()
 
+models.Base.metadata.create_all(bind=engine)
+db = SessionLocal()
 frame_count = 0
+everydayAlertCount:int = 0
 rtscap = RTSCapture.create('rtsp://192.168.1.110:8554/live')
 rtscap.start_read()
+
 while rtscap.isStarted():
+    issomeone = False
+    isonfire = False
+    # 每天固定时间写入当日温度、当日闯入次数
+    t = time.localtime()
+    if t.tm_hour == 12:
+        r = requests.get('https://www.yiketianqi.com/free/day?appid=58594862&appsecret=r75QnFGN&unescape=1') 
+        tem = r.json()['tem']
+        crud.add_tempe(db,int(tem))
+        crud.add_alert_num(db,everydayAlertCount)
+        everydayAlertCount = 0
+
     ok, frame = rtscap.read_latest_frame()
     if frame is None or not ok:
         continue
@@ -84,26 +100,25 @@ while rtscap.isStarted():
             if 'fall' in fallOrNot:
                 print('有人摔倒')
                 pushAlert('家里有人摔倒')
+                everydayAlertCount += 1
             recg = compareFace()
             if recg == 0:
-                print('欢迎')
+                print(f'欢迎')
             elif recg == 1:
                 pushAlert('未知人员闯入')
+                everydayAlertCount += 1
             else:
                 print('未检测到人脸')
-            with open('someone','w')as f:
-                f.write('1')
+            issomeone = True
         elif "Fire" in result:
             pushAlert('家里可能着火')
-            with open('onfire','w')as f:
-                f.write('1')
+            everydayAlertCount += 1
+            isonfire = True
         else:
-            print('Normal')
-            with open('onfire','w')as f:
-                f.write('0')
-            with open('someone','w')as f:
-                f.write('0')
+            print('正常')
+        crud.change_status(db,issomeone=issomeone,isonfire=isonfire)
     frame_count += 1
+
 rtscap.stop_read()
 rtscap.release()
 cv2.destroyAllWindows()

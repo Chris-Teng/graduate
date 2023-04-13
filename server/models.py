@@ -1,5 +1,5 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+# from sqlalchemy.orm import relationship
 from .database import Base
 
 
@@ -15,3 +15,17 @@ class AlertNum(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     count = Column(Integer)
+
+class securityStatus(Base):
+    __tablename__ = "securitystatus"
+
+    id = Column(Integer, primary_key=True, index=True)
+    someone = Column(Boolean)
+    onfire = Column(Boolean)
+
+class faceRecord(Base):
+    __tablename__ = "faceRecord"
+
+    id = Column(Integer, primary_key=True, index=True)
+    face = Column(String)
+    time = Column(String)
