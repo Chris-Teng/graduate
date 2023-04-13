@@ -32,10 +32,10 @@ def add_record(db: Session, face: str,time: str):
     return db_record
 
 def get_tempe(db: Session):
-    return db.query(models.Temperature).limit(30).all()
+    return db.query(models.Temperature).order_by(models.Temperature.id.desc()).limit(30).all()
 
 def get_alert_num(db: Session):
-    return db.query(models.AlertNum).limit(30).all()
+    return db.query(models.AlertNum).order_by(models.AlertNum.id.desc()).limit(30).all()
 
 def get_security_status(db: Session):
     return db.query(models.securityStatus).order_by(models.securityStatus.id.desc()).first()

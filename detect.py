@@ -1,4 +1,4 @@
-import cv2,threading,requests,subprocess,time
+import cv2,threading,requests,subprocess,time,shutil,os
 from server import crud, models
 from server.database import SessionLocal, engine
 
@@ -17,18 +17,21 @@ def pushAlert(m:str):
     x = requests.post('https://oapi.dingtalk.com/robot/send?access_token=506e02c8f76fc6feb75885e65c1e1b7909779999e20b0cd4b141e6813711048c', json=msg,headers=headers)
     print(x.text)
 def compareFace():
+    whos = []
     headers = {
     "x-api-key": "80dc6f1b-9968-42f2-8660-167549ca28fc",
     }
     files = {'file': open('tmp.jpg','rb')}
     r = requests.post('http://localhost:8000/api/v1/recognition/recognize', files=files,headers=headers)
     if 'No face' in r.text:
-        return 2
+        return 0
     result = r.json()['result']
     for person in result:
         if person['subjects'][0]['similarity'] < 0.98:
             return 1
-    return 0  
+        else:
+            whos.append(person['subjects'][0]['subject'])
+    return whos
 class RTSCapture(cv2.VideoCapture):
     _cur_frame = None
     _reading = False
@@ -74,7 +77,7 @@ models.Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 frame_count = 0
 everydayAlertCount:int = 0
-rtscap = RTSCapture.create('rtsp://192.168.1.110:8554/live')
+rtscap = RTSCapture.create('rtsp://192.168.3.29:8554/live')
 rtscap.start_read()
 
 while rtscap.isStarted():
@@ -82,6 +85,7 @@ while rtscap.isStarted():
     isonfire = False
     # 每天固定时间写入当日温度、当日闯入次数
     t = time.localtime()
+    t2 = time.strftime('%b %d %Y %H:%M:%S', time.gmtime(time.time()))
     if t.tm_hour == 12:
         r = requests.get('https://www.yiketianqi.com/free/day?appid=58594862&appsecret=r75QnFGN&unescape=1') 
         tem = r.json()['tem']
@@ -102,13 +106,17 @@ while rtscap.isStarted():
                 pushAlert('家里有人摔倒')
                 everydayAlertCount += 1
             recg = compareFace()
-            if recg == 0:
-                print(f'欢迎')
-            elif recg == 1:
+            if recg == 1:
+                # shutil.copy('tmp.jpg', f'unknownface')
+                # os.rename('unknownface/tmp.jpg',f'unknownface/{t2}.jpg')
                 pushAlert('未知人员闯入')
+                crud.add_record(db,'未知人员',t2)
                 everydayAlertCount += 1
-            else:
+            elif recg == 0:
                 print('未检测到人脸')
+            else:
+                print(recg)
+                crud.add_record(db,','.join(recg),t2)
             issomeone = True
         elif "Fire" in result:
             pushAlert('家里可能着火')
