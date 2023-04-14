@@ -39,6 +39,9 @@ def get_alert_num(db: Session):
 
 def get_security_status(db: Session):
     return db.query(models.securityStatus).order_by(models.securityStatus.id.desc()).first()
+
+def get_record(db: Session):
+    return db.query(models.faceRecord).order_by(models.faceRecord.id.desc()).limit(10).all()
 # def get_user(db: Session, user_id: int):
 #     return db.query(models.User).filter(models.User.id == user_id).first()
 # def get_user_by_email(db: Session, email: str):
