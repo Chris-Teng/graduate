@@ -5,6 +5,20 @@ import requests, uvicorn
 
 from server import crud, models
 from server.database import SessionLocal, engine
+def pushAlert(m:str):
+    headers = {
+    "Content-Type":"application/json",
+    "accept": "*/*",
+    "accept-encoding": "gzip, deflate, br",
+    "user-agent": "PostmanRuntime/7.31.3",
+    "Connection":"keep-alive"
+    }
+
+    msg = {"msgtype": "text","text": {"content":f"监控报警: {m}"}}
+
+    # 发送请求
+    x = requests.post('https://oapi.dingtalk.com/robot/send?access_token=506e02c8f76fc6feb75885e65c1e1b7909779999e20b0cd4b141e6813711048c', json=msg,headers=headers)
+    print(x.text)
 
 app = FastAPI()
 app.add_middleware(
@@ -68,6 +82,10 @@ def read_record(db: Session = Depends(get_db)):
     recordData = crud.get_record(db)
     return recordData
 
+@app.get("/smokealert/{alert_value}")
+def smoke_alert(alert_value: int):
+    pushAlert('危险气体浓度超标！ '+str(alert_value))
+    return 'ok '+str(alert_value)
 
 if __name__ == "__main__":
-    uvicorn.run(app="main:app", host="127.0.0.1", port=8001, reload=True)
+    uvicorn.run(app="main:app", host="0.0.0.0", port=8001, reload=True)
